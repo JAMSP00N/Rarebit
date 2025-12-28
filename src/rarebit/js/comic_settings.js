@@ -14,6 +14,10 @@ let pg = Number(findGetParameter("pg")); //make "pg" mean the current page numbe
 const maxpg = 14; //the current number of pages your comic has in total. this DOESNT necessarily mean number of IMAGE FILES as it doesn't count pages split into multiple files. 
 //YOU MUST UPDATE THIS NUMBER EVERY TIME YOU ADD A NEW PAGE or else it wont display the most recent page
 
+//DISPLAY SETTINGS
+const enablePageSpread = true; //if you want to allow the reader to show 2 pages side-by-side as a L/R spread, change to true
+const oddPagesRight = true; //if doing L/R spreads, true if odd pages (pg 1, 3, etc) are the right page, false if left
+
 // COMIC PAGE SETTINGS
 const folder = "img/comics"; //directory of the folder where you keep all the comics
 const image = "pg"; //what you'll name all your comic pages
@@ -122,6 +126,40 @@ function findGetParameter(parameterName) { //function used to write a parameter 
         if (tmp[0] === parameterName) result = decodeURIComponent(tmp[1]);
     }
     return result;
+}
+
+function setParameter(parameterName, parameterValue) {
+    tmp = [];
+    let param = `${parameterName}=${parameterValue}`;
+    let paramSet = false;
+    let items = location.search.substring(1).split("&");
+    for (let index = 0; index < items.length; index++) {
+        tmp = items[index].split("=");
+        if (tmp[0] === parameterName) {
+            items[index] = param;
+            paramSet = true;
+            continue;
+        }
+    }
+
+    if (!paramSet) items.push(param);
+
+    location.search = `?${items.join("&")}`;
+}
+
+function removeParameter(parameterName) {
+    tmp = [];
+    let items = location.search.substring(1).split("&");
+    for (let index = 0; index < items.length; index++) {
+        tmp = items[index].split("=");
+        if (tmp[0] === parameterName) {
+            items.splice(index, 1);
+            continue;
+        }
+    }
+
+    location.search = `?${items.join("&")}`;
+
 }
 
 function writeDate(year,month,day) { //write date of comic page

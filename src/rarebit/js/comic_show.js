@@ -13,6 +13,9 @@ writeNav(true); //show navigation for comic pages. to toggle either images or te
 //debug
 console.log(pg)
 
+if (enablePageSpread) //ONLY if allowed in comic_settings.js
+  writePageSpreadToggle(".writePageSpreadToggle"); //write 
+
 writePageTitle(".writePageTitle", true, " - "); //write title of page. true/false
 
 writePageClickable(".writePageClickable",true); //show the current page. to toggle whether pages can be clicked to move to the next one, set this to true or false.
@@ -24,15 +27,31 @@ keyNav(); //enables navigation through the comic with the arrow keys and WSAD. I
 // below this point is more under-the-hood type stuff that we only encourage messing with if you're more familiar with js, 
 // but it's still commented as extensively as possible anyway just in case
 
+function writePageSpreadToggle(div) {
+  document.querySelector(div).innerHTML = `<input type="checkbox" id="spreadToggle" />`;
+  const toggleCheckbox = document.querySelector("#spreadToggle");
+  toggleCheckbox.checked = findGetParameter("spread") === "true";
+  toggleCheckbox.addEventListener("change", () => {
+    console.log(toggleCheckbox.checked);
+    if (toggleCheckbox.checked)
+      setParameter("spread", toggleCheckbox.checked);
+    else
+      removeParameter("spread");
+  });
+}
+
 //SHOW COMIC PAGE, with clickable link
 function writePageClickable(div,clickable) {
+
     if (!clickable) {
-        document.querySelector(div).innerHTML = `<div class="comicPage">${writePage()}</div>`; //display comic page without link
+        document.querySelector(div).innerHTML = `<div class="comicPage">${writePageSpread()}</div>`; //display comic page without link
     } else if (pg < maxpg) {
+        let offset = enablePageSpread && findGetParameter("spread") === "true" ? 2 : 1;
+        let spread = enablePageSpread && findGetParameter("spread") === "true" ? "spread=true&" : "";
         //check whether comic is on the last page
-        document.querySelector(div).innerHTML = `<div class="comicPage"><a href="?pg=${pg + 1}${navScrollTo}"/>${writePage()}</a></div>`; //display comic page and make it so that clicking it will lead you to the next page
+        document.querySelector(div).innerHTML = `<div class="comicPage"><a href="?${spread}pg=${pg + offset}${navScrollTo}"/>${writePageSpread()}</a></div>`; //display comic page and make it so that clicking it will lead you to the next page
     } else {
-        document.querySelector(div).innerHTML = `<div class="comicPage">${writePage()}</div>`; //display comic page without link
+        document.querySelector(div).innerHTML = `<div class="comicPage">${writePageSpread()}</div>`; //display comic page without link
     }
 }
 
@@ -53,28 +72,39 @@ function writeAuthorNotes(div) { //display author notes
   }
 }
 
+function writePageSpread() {
+  const pgOdd = (pg + 2) % 2 === 1;
+  if (enablePageSpread && findGetParameter("spread") && pgOdd === oddPagesRight && pg > 1) {
+    pg -= 1;
+    setParameter("pg", pg);
+    setParameter("spread", "true");
+  }
+  return `${pg > 0 ? writePage(pg) : ""}${pg > 1 && pg < maxpg && enablePageSpread && findGetParameter("spread") ? writePage(pg+1) : ""}`;
+}
+
 //function used to split pages into multiple images if needed, and add alt text
-function writePage() {
+function writePage(pageNumber) {
   let partExtension = ""; //part extension to add to the url if the image is split into multiple parts
   let altText = ""; //variable for alt text
-  let path = (folder != "" ? folder + "/" : "") + image + pg + partExtension + "." + ext; //path for your comics made out of variables strung together
+  let path = (folder != "" ? folder + "/" : "") + image + pageNumber + partExtension + "." + ext; //path for your comics made out of variables strung together
   let page = ``;
 
-  if (pgData.length < pg) { //if the array is blank or not long enough to have an entry for this page
+  if (pageNumber === 0) return "";
+  else if (pgData.length < pageNumber) { //if the array is blank or not long enough to have an entry for this page
     //debug
     console.log("page code to insert - " + page);
     console.log("alt text to print - " + altText);
     //
     page = `<img alt="` + altText + `" title="` + altText + `" src="` + path + `" />`;
     return page;
-  } else if (pgData.length >= pg) { //if the array is not blank, and if its at least long enough to have an entry for the current page
+  } else if (pgData.length >= pageNumber) { //if the array is not blank, and if its at least long enough to have an entry for the current page
 
-    altText = pgData[pg - 1].altText; //set alt text to the text defined in the array
+    altText = pgData[pageNumber - 1].altText; //set alt text to the text defined in the array
 
-    if (pgData[pg-1].imageFiles > 1) { //if theres more than one page segment
-    for (let i = 1; i < pgData[pg-1].imageFiles+1; i++) { //for loop to put all the parts of the image on the webpage
+    if (pgData[pageNumber-1].imageFiles > 1) { //if theres more than one page segment
+    for (let i = 1; i < pgData[pageNumber-1].imageFiles+1; i++) { //for loop to put all the parts of the image on the webpage
       partExtension = imgPart + i.toString();
-      path = (folder != "" ? folder + "/" : "") + image + pg + partExtension + "." + ext; //reinit path (there has to be a less dumb way to do this)
+      path = (folder != "" ? folder + "/" : "") + image + pageNumber + partExtension + "." + ext; //reinit path (there has to be a less dumb way to do this)
       if (i > 1) {page += `<br/>`} //add line break
       page += `<img alt="` + altText + `" title="` + altText + `" src="` + path + `" />`; //add page segment
       }
@@ -123,10 +153,12 @@ function writeNav(imageToggle) {
         `;})
 
     function firstButton() {
+        let spread = enablePageSpread && findGetParameter("spread") === "true" ? "spread=true&" : "";
+
         //FIRST BUTTON
         if (pg > 1) {
             //wait until page 2 to make button active
-            return `<a href="?pg=` + 1 + navScrollTo + `"/>` + imgOrText(imageToggle, 0) + `</a>`;
+            return `<a href="?${spread}pg=` + 1 + navScrollTo + `"/>` + imgOrText(imageToggle, 0) + `</a>`;
         } else {
             if (!imageToggle) {
                 return imgOrText(imageToggle, 0);
@@ -145,10 +177,13 @@ function writeNav(imageToggle) {
     }
 
     function prevButton() {
+        let offset = enablePageSpread && findGetParameter("spread") === "true" ? 2 : 1;
+        let spread = enablePageSpread && findGetParameter("spread") === "true" ? "spread=true&" : "";
+
         //PREV BUTTON
-        if (pg > 1) {
+        if (pg > offset) {
             //wait until page 2 to make button active
-            return `<a href="?pg=` + (pg - 1) + navScrollTo + `"/>` + imgOrText(imageToggle, 1) + `</a>`;
+            return `<a href="?${spread}pg=` + (pg - offset) + navScrollTo + `"/>` + imgOrText(imageToggle, 1) + `</a>`;
         } else {
             if (!imageToggle) {
                 return imgOrText(imageToggle, 1);
@@ -159,10 +194,13 @@ function writeNav(imageToggle) {
     }
 
     function nextButton() {
+        let offset = enablePageSpread && findGetParameter("spread") === "true" ? 2 : 1;
+        let spread = enablePageSpread && findGetParameter("spread") === "true" ? "spread=true&" : "";
+
         //NEXT BUTTON
         if (pg < maxpg) {
             //only make active if not on the last page
-            return `<a href="?pg=` + (pg + 1) + navScrollTo + `"/>` + imgOrText(imageToggle, 2) + `</a>`;
+            return `<a href="?${spread}pg=` + (pg + offset) + navScrollTo + `"/>` + imgOrText(imageToggle, 2) + `</a>`;
         } else {
             if (!imageToggle) {
                 return imgOrText(imageToggle, 2);
@@ -173,10 +211,12 @@ function writeNav(imageToggle) {
     }
 
     function lastButton() {
+        let spread = enablePageSpread && findGetParameter("spread") === "true" ? "spread=true&" : "";
+
         //LAST BUTTON
         if (pg < maxpg) {
             //only make active if not on last page
-            return `<a href="?pg=` + maxpg + navScrollTo + `"/>` + imgOrText(imageToggle, 3) + `</a>`;
+            return `<a href="?${spread}pg=` + maxpg + navScrollTo + `"/>` + imgOrText(imageToggle, 3) + `</a>`;
         } else {
             if (!imageToggle) {
                 return imgOrText(imageToggle, 3);
